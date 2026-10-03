@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>購入プロ デモ</title>
+<style>
+  :root {
+    --navy: #1C2230; --gold: #D9A440; --cream: #FAF7F0; --white: #FFFFFF;
+    --line: #E3DFD2; --text: #2a2a2a; --muted: #8a8a80; --red: #B5472B; --blue: #2A6FD6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", Meiryo, sans-serif;
+    background: #15171d;
+    -webkit-user-select: none; user-select: none;
+  }
+  body { display: flex; align-items: center; justify-content: center; }
+
+  /* ---- スマホ枠 ---- */
+  #phone {
+    width: 390px; height: 844px; max-height: 96vh;
+    background: var(--cream); border-radius: 44px; overflow: hidden;
+    position: relative; box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+    border: 9px solid #0a0a0a;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 130px; height: 24px; background: #0a0a0a; border-radius: 0 0 16px 16px; z-index: 50;
+  }
+
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  .btn { cursor: pointer; border: none; font-family: inherit; font-weight: 900; border-radius: 999px; transition: transform .12s ease; }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: var(--gold); color: var(--navy); padding: 15px 0; font-size: 15px; width: 100%; }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1.5px solid var(--line); padding: 10px 22px; font-size: 13px; }
+
+  /* ---- 0. アイドル ---- */
+  #screen-idle { background: var(--navy); align-items: center; justify-content: center; padding: 0 28px; }
+  #screen-idle .kicker { color: #9aa0c0; font-size: 10.5px; letter-spacing: 1.5px; font-weight: 700; text-align: center; margin-bottom: 22px; }
+  #screen-idle .title { color: var(--white); font-size: 21px; font-weight: 900; line-height: 1.6; text-align: center; margin-bottom: 6px; }
+  #screen-idle .title .accent { color: var(--gold); }
+  #screen-idle .service { color: var(--white); font-size: 46px; font-weight: 900; margin: 14px 0 30px 0; }
+  #screen-idle .footer-bar { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; font-size: 9.5px; color: #8a90ae; }
+
+  /* ---- 1. チャット画面 ---- */
+  #screen-chat { background: var(--cream); }
+  .chat-header {
+    flex: 0 0 auto; background: var(--navy); padding: 18px 18px 12px 18px; display: flex; align-items: center; gap: 10px;
+    padding-top: 30px;
+  }
+  .chat-header .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--navy); font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .chat-header .hname { color: #fff; font-size: 14px; font-weight: 900; }
+  .chat-header .hstatus { color: #9aa0c0; font-size: 10px; }
+
+  .chat-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .msg-row { display: flex; }
+  .msg-row.ai { justify-content: flex-start; }
+  .msg-row.user { justify-content: flex-end; }
+  .bubble {
+    max-width: 78%; padding: 10px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.65;
+    animation: popin .25s ease;
+  }
+  @keyframes popin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .bubble.ai { background: #fff; color: var(--text); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .bubble.user { background: var(--navy); color: #fff; border-bottom-right-radius: 4px; }
+  .bubble img.shot-thumb { width: 150px; border-radius: 10px; display: block; }
+  .bubble .shot-doc-wrap { width: 150px; height: 190px; overflow: hidden; border-radius: 8px; position: relative; background: #fff; }
+  .bubble .shot-doc-wrap .shot-doc-inner { width: 390px; transform: scale(0.385); transform-origin: top left; }
+
+  .typing-dots { display: flex; gap: 4px; padding: 4px 2px; }
+  .typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: #b7bdd6; animation: tdot 1.1s infinite ease-in-out; }
+  .typing-dots span:nth-child(2) { animation-delay: .15s; }
+  .typing-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes tdot { 0%, 60%, 100% { opacity: .3; transform: scale(0.8); } 30% { opacity: 1; transform: scale(1.1); } }
+
+  .card-bubble { max-width: 86%; }
+  .compare-mini { display: flex; gap: 8px; }
+  .compare-mini .cm { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
+  .compare-mini .cm.bad { border-color: #e0b0a0; background: #FBF1EC; }
+  .compare-mini .ct { font-size: 9px; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
+  .compare-mini .cv { font-size: 15px; font-weight: 900; color: var(--navy); }
+  .compare-mini .cm.bad .cv { color: var(--red); }
+
+  .phrase-card { background: var(--navy); border-radius: 12px; padding: 12px 14px; }
+  .phrase-card .plabel { color: var(--gold); font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 5px; }
+  .phrase-card .ptext { color: #fff; font-size: 13px; line-height: 1.6; }
+
+  .downside-card { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 8px; padding: 10px 12px; }
+  .downside-card .dlabel { font-size: 9.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+  .downside-card .dtext { font-size: 12.5px; line-height: 1.6; color: var(--text); }
+
+  .chat-input-area { flex: 0 0 auto; padding: 10px 14px 18px 14px; background: var(--cream); border-top: 1px solid var(--line); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--white); border: 1.5px solid var(--navy); color: var(--navy); font-size: 12.5px; font-weight: 700;
+    padding: 9px 14px; border-radius: 20px; cursor: pointer; transition: transform .12s ease;
+  }
+  .chip:active { transform: scale(0.95); }
+  .chip.cam { background: var(--gold); border-color: var(--gold); display: flex; align-items: center; gap: 6px; }
+  .chip-wide { width: 100%; text-align: center; }
+
+  /* ---- カメラ オーバーレイ ---- */
+  #camera-overlay {
+    position: absolute; inset: 0; background: #0c0e13; z-index: 100;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #camera-overlay.active { display: flex; }
+  .cam-kicker { color: #cfd3dc; font-size: 11.5px; text-align: center; padding: 0 24px; margin-bottom: 14px; margin-top: 30px; }
+  .viewfinder {
+    width: 300px; aspect-ratio: 3 / 4; border-radius: 16px; border: 3px solid rgba(255,255,255,0.3);
+    position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #15171d;
+  }
+  .viewfinder video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .viewfinder .doc-wrap { width: 88%; }
+  .corner { position: absolute; width: 26px; height: 26px; border-color: var(--gold); border-style: solid; border-width: 0; z-index: 2; }
+  .corner.tl { top: 10px; left: 10px; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 6px; }
+  .corner.tr { top: 10px; right: 10px; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 6px; }
+  .corner.bl { bottom: 10px; left: 10px; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 6px; }
+  .corner.br { bottom: 10px; right: 10px; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 6px; }
+  .cam-hint { color: #cfd3dc; font-size: 12px; margin-top: 16px; text-align: center; padding: 0 30px; min-height: 16px; }
+  .shutter { width: 62px; height: 62px; border-radius: 50%; background: var(--white); border: 4px solid rgba(255,255,255,0.3); margin-top: 16px; cursor: pointer; }
+  .shutter:active { transform: scale(0.92); }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 3; }
+  .flash.flashing { animation: flashpop .35s ease-out; }
+  @keyframes flashpop { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+
+  .doc { background: #ffffff; width: 100%; border-radius: 6px; padding: 14px; color: #2a2a2a; }
+  .doc .doc-meta { display: flex; justify-content: space-between; font-size: 6.5px; color: #999; margin-bottom: 5px; }
+  .doc .doc-title { font-size: 12px; font-weight: 900; text-align: center; letter-spacing: 4px; margin-bottom: 8px; }
+  .doc .doc-parties { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .doc .addr { font-size: 9px; font-weight: 700; border-bottom: 1px solid #333; padding-bottom: 2px; }
+  .doc .addr .sub { display: block; font-size: 6px; font-weight: 400; color: #777; margin-top: 1px; }
+  .doc .issuer { text-align: right; font-size: 6px; color: #555; line-height: 1.5; }
+  .doc .issuer .co { font-size: 7px; font-weight: 700; color: #1a1a1a; }
+  .doc .doc-totalbox { background: var(--navy); color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 7px 9px; border-radius: 4px; margin-bottom: 7px; }
+  .doc .doc-totalbox .l { font-size: 7px; }
+  .doc .doc-totalbox .v { font-size: 13px; font-weight: 900; }
+  .doc table { width: 100%; border-collapse: collapse; font-size: 6.8px; margin-bottom: 6px; }
+  .doc th, .doc td { padding: 3px 2px; border-bottom: 1px solid #e3e0d6; text-align: left; }
+  .doc th { color: #999; font-weight: 700; font-size: 6px; background: #F3F0E6; }
+  .doc td.num { text-align: right; }
+  .doc td.center { text-align: center; }
+  .doc .highlight-row td { background: #fdf0d2; }
+  .doc .doc-sub-table { width: 58%; margin-left: auto; font-size: 6.8px; }
+  .doc .doc-sub-table td { padding: 1px; border: none; }
+  .doc .doc-sub-table td:last-child { text-align: right; }
+  .doc .doc-sub-table tr.grand td { border-top: 1px solid #1a1a1a; font-weight: 900; font-size: 8px; padding-top: 2px; }
+
+  .brochure { background: #fff; width: 100%; border-radius: 8px; overflow: hidden; }
+  .brochure .bhero { background: linear-gradient(135deg, var(--blue) 0%, #1C4FA0 100%); color: #fff; padding: 10px 12px; }
+  .brochure .bhero .bbadge { display: inline-block; background: var(--gold); color: var(--navy); font-size: 6px; font-weight: 900; padding: 2px 7px; border-radius: 20px; margin-bottom: 5px; }
+  .brochure .bhero h3 { margin: 0; font-size: 11px; font-weight: 900; }
+  .brochure .bprice { background: var(--gold); color: var(--navy); padding: 5px 12px; display: flex; justify-content: space-between; font-size: 7.5px; font-weight: 700; }
+  .brochure .blist { padding: 9px 12px; }
+  .brochure .brow { display: flex; gap: 5px; align-items: flex-start; font-size: 6.8px; line-height: 1.5; margin-bottom: 6px; color: #333; }
+  .brochure .brow .bcheck { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 6px; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="phone">
+  <div class="notch"></div>
+
+  <!-- 0. アイドル -->
+  <div id="screen-idle" class="screen active">
+    <div class="kicker">ユメカタリ 学生生成AIコンテスト<br>クリエイティブ部門</div>
+    <div class="title">店員は<span class="accent">"売る"プロ</span>。<br>でもこっち側に<span class="accent">"買う"プロ</span>はいない。</div>
+    <div class="service">購入プロ</div>
+    <button class="btn btn-primary" style="width:200px;" onclick="startChat()">タップして体験する</button>
+    <div class="footer-bar">HAL名古屋　情報・IT系学科　齋藤</div>
+  </div>
+
+  <!-- 1. チャット -->
+  <div id="screen-chat" class="screen">
+    <div class="chat-header">
+      <div class="avatar">AI</div>
+      <div>
+        <div class="hname">購入プロ</div>
+        <div class="hstatus">買う側のための交渉AI</div>
+      </div>
+    </div>
+    <div class="chat-body" id="chat-body"></div>
+    <div class="chat-input-area" id="chat-input-area"></div>
+  </div>
+
+  <!-- カメラ オーバーレイ -->
+  <div id="camera-overlay">
+    <div class="cam-kicker" id="cam-kicker">見積書を撮影してください</div>
+    <div class="viewfinder" id="viewfinder">
+      <video id="camera-feed" autoplay playsinline muted></video>
+      <div class="doc-wrap" id="fallback-doc" style="display:none;"></div>
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="cam-hint" id="cam-hint">枠に合わせてください</div>
+    <div class="shutter" onclick="takePhoto()"></div>
+  </div>
+
+</div>
+
+<script>
+  var FALLBACK_QUOTE_HTML =
+    '<div class="doc">' +
+      '<div class="doc-meta"><span>No. 2026-0931</span><span>2026/9/28</span></div>' +
+      '<div class="doc-title">御見積書</div>' +
+      '<div class="doc-parties">' +
+        '<div class="addr">齋藤　様<span class="sub">ノートPCご購入について</span></div>' +
+        '<div class="issuer"><div class="co">中部エレクトロニクス</div>名古屋本店<br>TEL：052-000-1234</div>' +
+      '</div>' +
+      '<div class="doc-totalbox"><div class="l">御見積金額（税込）</div><div class="v">¥224,800</div></div>' +
+      '<table>' +
+        '<tr><th>品名</th><th style="text-align:center;">数量</th><th style="text-align:right;">金額</th></tr>' +
+        '<tr><td>ノートPC 本体</td><td class="center">1</td><td class="num">¥181,818</td></tr>' +
+        '<tr class="highlight-row"><td>安心メンテナンスプラン（3年）</td><td class="center">1</td><td class="num">¥36,182</td></tr>' +
+        '<tr class="highlight-row"><td>本体値引き（特典）</td><td class="center">1</td><td class="num">−¥13,636</td></tr>' +
+        '<tr class="highlight-row"><td>増設メモリ16GB（特典）</td><td class="center">1</td><td class="num">¥0</td></tr>' +
+      '</table>' +
+      '<table class="doc-sub-table">' +
+        '<tr><td>小計</td><td>¥204,364</td></tr>' +
+        '<tr><td>消費税</td><td>¥20,436</td></tr>' +
+        '<tr class="grand"><td>合計</td><td>¥224,800</td></tr>' +
+      '</table>' +
+    '</div>';
+
+  var FALLBACK_BROCHURE_HTML =
+    '<div class="brochure">' +
+      '<div class="bhero"><div class="bbadge">ご購入者様限定プラン</div><h3>安心メンテナンスプラン</h3></div>' +
+      '<div class="bprice"><span>プラン価格（3年）</span><span>¥39,800</span></div>' +
+      '<div class="blist">' +
+        '<div class="brow"><div class="bcheck">✓</div><div>修理代金 何度でも0円</div></div>' +
+        '<div class="brow"><div class="bcheck">✓</div><div>水濡れ・落下も保証対象</div></div>' +
+        '<div class="brow"><div class="bcheck">✓</div><div>保証期間 1年→3年</div></div>' +
+        '<div class="brow"><div class="bcheck">✓</div><div>24時間サポート窓口</div></div>' +
+        '<div class="brow"><div class="bcheck">✓</div><div>加入率 約72%</div></div>' +
+      '</div>' +
+    '</div>';
+
+  var chatBody, inputArea;
+  var currentMode = 'quote';
+  var usingCamera = false;
+  var cameraStream = null;
+
+  function startChat() {
+    chatBody = document.getElementById('chat-body');
+    inputArea = document.getElementById('chat-input-area');
+    goTo('chat');
+    setTimeout(function() {
+      addAIText('こんにちは、購入プロです。気になる見積書があれば、撮影して送ってください。', function() {
+        showChips([{ label: '見積書を撮影する', cam: true, onClick: function(){ openCamera('quote'); } }]);
+      });
+    }, 400);
+  }
+
+  function goTo(name) {
+    document.querySelectorAll('#phone > .screen').forEach(function(el){ el.classList.remove('active'); });
+    document.getElementById('screen-' + name).classList.add('active');
+  }
+
+  /* ---- チャット描画ユーティリティ ---- */
+  function scrollChatBottom() { chatBody.scrollTop = chatBody.scrollHeight; }
+
+  function addUserImageBubble(src, isFallback) {
+    var row = document.createElement('div');
+    row.className = 'msg-row user';
+    var b = document.createElement('div');
+    b.className = 'bubble user';
+    if (!isFallback && src) {
+      b.innerHTML = '<img class="shot-thumb" src="' + src + '">';
+    } else {
+      var inner = currentMode === 'quote' ? FALLBACK_QUOTE_HTML : FALLBACK_BROCHURE_HTML;
+      b.innerHTML = '<div class="shot-doc-wrap"><div class="shot-doc-inner">' + inner + '</div></div>';
+    }
+    row.appendChild(b);
+    chatBody.appendChild(row);
+    scrollChatBottom();
+  }
+
+  function addTypingRow() {
+    var row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.id = 'typing-row';
+    var b = document.createElement('div');
+    b.className = 'bubble ai';
+    b.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    row.appendChild(b);
+    chatBody.appendChild(row);
+    scrollChatBottom();
+    return row;
+  }
+
+  function addAIText(text, onDone) {
+    var typingRow = addTypingRow();
+    var delay = 500 + Math.random() * 400;
+    setTimeout(function() {
+      typingRow.remove();
+      var row = document.createElement('div');
+      row.className = 'msg-row ai';
+      var b = document.createElement('div');
+      b.className = 'bubble ai';
+      row.appendChild(b);
+      chatBody.appendChild(row);
+      var i = 0;
+      var iv = setInterval(function() {
+        i++;
+        b.textContent = text.slice(0, i);
+        scrollChatBottom();
+        if (i >= text.length) {
+          clearInterval(iv);
+          if (onDone) onDone();
+        }
+      }, 22);
+    }, delay);
+  }
+
+  function addAICard(html, onDone) {
+    var row = document.createElement('div');
+    row.className = 'msg-row ai';
+    var b = document.createElement('div');
+    b.className = 'bubble ai card-bubble';
+    b.innerHTML = html;
+    row.appendChild(b);
+    chatBody.appendChild(row);
+    scrollChatBottom();
+    if (onDone) setTimeout(onDone, 350);
+  }
+
+  function showChips(options) {
+    inputArea.innerHTML = '';
+    var row = document.createElement('div');
+    row.className = 'chip-row';
+    options.forEach(function(opt) {
+      var chip = document.createElement('div');
+      chip.className = 'chip' + (opt.cam ? ' cam' : '') + (opt.wide ? ' chip-wide' : '');
+      chip.textContent = opt.label;
+      chip.onclick = function() { inputArea.innerHTML = ''; opt.onClick(); };
+      row.appendChild(chip);
+    });
+    inputArea.appendChild(row);
+  }
+
+  function addUserChipBubble(label) {
+    var row = document.createElement('div');
+    row.className = 'msg-row user';
+    var b = document.createElement('div');
+    b.className = 'bubble user';
+    b.textContent = label;
+    row.appendChild(b);
+    chatBody.appendChild(row);
+    scrollChatBottom();
+  }
+
+  /* ---- カメラ ---- */
+  function openCamera(mode) {
+    currentMode = mode;
+    document.getElementById('cam-kicker').textContent = mode === 'quote' ? '見積書を撮影してください' : 'プランの説明資料を撮影してください';
+    document.getElementById('cam-hint').textContent = '枠に合わせてください';
+    document.getElementById('camera-overlay').classList.add('active');
+    startCamera();
+  }
+
+  function closeCamera() {
+    document.getElementById('camera-overlay').classList.remove('active');
+  }
+
+  function startCamera() {
+    var video = document.getElementById('camera-feed');
+    var fallbackDoc = document.getElementById('fallback-doc');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { activateFallback(); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .then(function(stream) {
+        cameraStream = stream; usingCamera = true;
+        video.srcObject = stream; video.style.display = 'block';
+        fallbackDoc.style.display = 'none';
+      })
+      .catch(function() { activateFallback(); });
+  }
+
+  function activateFallback() {
+    usingCamera = false;
+    var video = document.getElementById('camera-feed');
+    var fallbackDoc = document.getElementById('fallback-doc');
+    video.style.display = 'none';
+    fallbackDoc.innerHTML = currentMode === 'quote' ? FALLBACK_QUOTE_HTML : FALLBACK_BROCHURE_HTML;
+    fallbackDoc.style.display = 'block';
+    document.getElementById('cam-hint').textContent = 'カメラが使用できないため、サンプルで体験します';
+  }
+
+  function stopCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(function(t) { t.stop(); }); cameraStream = null; }
+  }
+
+  function takePhoto() {
+    var flash = document.getElementById('flash');
+    flash.classList.add('flashing');
+    var shotSrc = null;
+    if (usingCamera) {
+      var video = document.getElementById('camera-feed');
+      var canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 800;
+      canvas.height = video.videoHeight || 1000;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      shotSrc = canvas.toDataURL('image/jpeg', 0.85);
+      stopCamera();
+    }
+    setTimeout(function() {
+      closeCamera();
+      addUserImageBubble(shotSrc, !usingCamera);
+      if (currentMode === 'quote') {
+        afterQuotePhoto();
+      } else {
+        afterBrochurePhoto();
+      }
+    }, 260);
+  }
+
+  /* ---- シナリオ本体 ---- */
+  function afterQuotePhoto() {
+    addAIText('見積書を確認しました。ノートPC本体に加えて、「安心メンテナンスプラン（3年・¥36,182）」が含まれていますね。', function() {
+      addAIText('プラン加入で本体が¥13,636値引き、メモリも無料になっていますが、トータルでは¥24,800高くなっています。', function() {
+        addAIText('プランの内容をもう少し詳しく確認したいので、説明資料も見せてもらえますか？', function() {
+          showChips([{ label: '説明資料を撮影する', cam: true, onClick: function(){ openCamera('brochure'); } }]);
+        });
+      });
+    });
+  }
+
+  function afterBrochurePhoto() {
+    addAIText('説明資料も確認しました。水濡れ・落下保証や24時間サポートは、メーカー保証にはない内容ですね。', function() {
+      addAIText('ただ、「加入率72%」という表現で後押ししている点や、本体値引きとセット販売になっている点も気になりました。', function() {
+        addAIText('ところで、あなたにとって大切なのはどちらですか？', function() {
+          showChips([
+            { label: '価格を抑えたい', onClick: function(){ chooseVerdict('price', '価格を抑えたい'); } },
+            { label: '安心感を重視したい', onClick: function(){ chooseVerdict('safety', '安心感を重視したい'); } },
+            { label: '判断材料を整理してほしい', onClick: function(){ chooseVerdict('balance', '判断材料を整理してほしい'); } }
+          ]);
+        });
+      });
+    });
+  }
+
+  var VERDICTS = {
+    price: {
+      headline: '価格を抑えたいなら、ひとまず見送るのがおすすめです。見送ることで¥24,800安くなります。',
+      downsideLabel: '見送る場合に知っておきたいこと',
+      downsideText: '水濡れ・落下などお客様の過失による故障は、メーカー保証の対象外です。見送った場合、修理費は実費（目安¥15,000〜¥40,000）の自己負担になります。',
+      phrase: 'メーカー保証でカバーできる範囲を確認したいので、プランは今回見送ります'
+    },
+    safety: {
+      headline: '安心感を重視するなら、プランには価値があります。水濡れ・落下保証や24時間サポートは、メーカー保証にはない内容です。',
+      downsideLabel: '加入する場合に知っておきたいこと',
+      downsideText: 'プラン価格には本体値引き・メモリの特典分が含まれていて、プラン単体の実質価格が見えにくくなっています。値引きと切り離して金額を確認するのがおすすめです。',
+      phrase: 'プラン単体の金額を教えてください。本体の値引きとは分けて検討したいです'
+    },
+    balance: {
+      headline: 'あなたの使い方で判断するのがおすすめです。外出先での利用が多い方や、過去に水濡れ・落下の経験がある方にはプランの価値があります。',
+      downsideLabel: '見送った場合のデメリット',
+      downsideText: '水濡れ・落下などの故障は実費（目安¥15,000〜¥40,000）の自己負担になります。一方で、慎重に扱えるなら発生確率自体は抑えられます。',
+      phrase: '持ち運びの頻度や過去の故障経験を振り返って、必要かどうかご自身で判断してみてください'
+    }
+  };
+
+  function chooseVerdict(key, label) {
+    addUserChipBubble(label);
+    var v = VERDICTS[key];
+    addAIText(v.headline, function() {
+      addAICard(
+        '<div class="compare-mini">' +
+          '<div class="cm"><div class="ct">プランなし</div><div class="cv">¥200,000</div></div>' +
+          '<div class="cm bad"><div class="ct">プラン込み</div><div class="cv">¥224,800</div></div>' +
+        '</div>', function() {
+        addAICard('<div class="downside-card"><div class="dlabel">' + v.downsideLabel + '</div><div class="dtext">' + v.downsideText + '</div></div>', function() {
+          addAICard('<div class="phrase-card"><div class="plabel">' + (key === 'balance' ? 'ひとこと' : '伝えるときの一言') + '</div><div class="ptext">' + v.phrase + '</div></div>', function() {
+            showChips([{ label: 'もう一度、最初から', wide: true, onClick: resetDemo }]);
+          });
+        });
+      });
+    });
+  }
+
+  function resetDemo() {
+    stopCamera();
+    chatBody.innerHTML = '';
+    inputArea.innerHTML = '';
+    goTo('idle');
+  }
+</script>
+</body>
+</html>
